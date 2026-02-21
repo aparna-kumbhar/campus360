@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,10 +8,12 @@ import {
   StatusBar,
   Dimensions,
   Animated,
+  TouchableWithoutFeedback,
 } from 'react-native';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const IS_DESKTOP = SCREEN_WIDTH >= 768;
+const DRAWER_WIDTH = 260;
 
 // ─── Nav Items ─────────────────────────────────────────────────────────────
 const NAV_ITEMS = [
@@ -19,12 +21,12 @@ const NAV_ITEMS = [
   { id: 'analytics', label: 'Analytics', icon: '📊' },
   { id: 'ai_doubts', label: 'AI Doubts', icon: '🤖' },
   { id: 'chat',      label: 'Chat',      icon: '💬' },
-
+  { id: 'profile',   label: 'Profile',   icon: '👤' },
 ];
 
 // ─── Animated Nav Item ─────────────────────────────────────────────────────
 const NavItem = ({ item, isActive, onPress, collapsed }) => {
-  const scale = React.useRef(new Animated.Value(1)).current;
+  const scale = useRef(new Animated.Value(1)).current;
 
   const onPressIn = () =>
     Animated.spring(scale, { toValue: 0.94, useNativeDriver: true, speed: 50 }).start();
@@ -105,12 +107,7 @@ const SidebarContent = ({ activeTab, collapsed, onNavPress, onToggleCollapse, sh
       style={[styles.userFooter, collapsed && styles.userFooterCollapsed]}
       onPress={() => onNavPress('profile')}
     >
-      <View style={styles.avatarWrap}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>AJ</Text>
-        </View>
-        <View style={styles.onlineBadge} />
-      </View>
+     
       {!collapsed && (
         <View style={styles.userMeta}>
           <Text style={styles.userName}>Alex Johnson</Text>
@@ -121,10 +118,134 @@ const SidebarContent = ({ activeTab, collapsed, onNavPress, onToggleCollapse, sh
   </View>
 );
 
+// ─── Hamburger Icon ────────────────────────────────────────────────────────
+const HamburgerIcon = ({ onPress }) => (
+  <TouchableOpacity
+    activeOpacity={0.7}
+    style={styles.hamburgerBtn}
+    onPress={onPress}
+    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+  >
+    <View style={styles.hamburgerLine} />
+    <View style={styles.hamburgerLine} />
+    <View style={styles.hamburgerLine} />
+  </TouchableOpacity>
+);
+
+// ─── Mobile Drawer ─────────────────────────────────────────────────────────
+const MobileDrawer = ({ activeTab, onNavPress, visible, onClose }) => {
+  const translateX = useRef(new Animated.Value(-DRAWER_WIDTH)).current;
+  const overlayOpacity = useRef(new Animated.Value(0)).current;
+  const [rendered, setRendered] = useState(false);
+
+  React.useEffect(() => {
+    if (visible) {
+      setRendered(true);
+      Animated.parallel([
+        Animated.spring(translateX, {
+          toValue: 0,
+          useNativeDriver: true,
+          bounciness: 0,
+          speed: 20,
+        }),
+        Animated.timing(overlayOpacity, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else {
+      Animated.parallel([
+        Animated.spring(translateX, {
+          toValue: -DRAWER_WIDTH,
+          useNativeDriver: true,
+          bounciness: 0,
+          speed: 20,
+        }),
+        Animated.timing(overlayOpacity, {
+          toValue: 0,
+          duration: 180,
+          useNativeDriver: true,
+        }),
+      ]).start(() => setRendered(false));
+    }
+  }, [visible]);
+
+  if (!rendered) return null;
+
+  return (
+    <>
+      {/* Dim Overlay */}
+      <TouchableWithoutFeedback onPress={onClose}>
+        <Animated.View style={[styles.overlay, { opacity: overlayOpacity }]} />
+      </TouchableWithoutFeedback>
+
+      {/* Sliding Drawer */}
+      <Animated.View style={[styles.mobileDrawer, { transform: [{ translateX }] }]}>
+        {/* Drawer Header */}
+        <View style={styles.drawerHeader}>
+          <View style={styles.mobileLogoRow}>
+            <View style={styles.logoIconBox}>
+              <Text style={styles.logoEmoji}>🎓</Text>
+            </View>
+            <Text style={styles.logoText}>Campus360</Text>
+          </View>
+          <TouchableOpacity
+            style={styles.closeBtn}
+            activeOpacity={0.7}
+            onPress={onClose}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Text style={styles.closeBtnText}>✕</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.divider} />
+
+        {/* Nav Items */}
+        <View style={styles.navList}>
+          {NAV_ITEMS.map((item) => (
+            <NavItem
+              key={item.id}
+              item={item}
+              isActive={activeTab === item.id}
+              onPress={onNavPress}
+              collapsed={false}
+            />
+          ))}
+        </View>
+
+        <View style={{ flex: 1 }} />
+        <View style={styles.divider} />
+
+        {/* User Footer */}
+        <TouchableOpacity
+          activeOpacity={0.75}
+          style={styles.userFooter}
+          onPress={() => onNavPress('profile')}
+        >
+          <View style={styles.avatarWrap}>
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>AJ</Text>
+            </View>
+            <View style={styles.onlineBadge} />
+          </View>
+          <View style={styles.userMeta}>
+            <Text style={styles.userName}>Alex Johnson</Text>
+            <Text style={styles.userRole}>Year 3 Student</Text>
+          </View>
+        </TouchableOpacity>
+
+        {/* Bottom safe padding */}
+        <View style={{ height: 20 }} />
+      </Animated.View>
+    </>
+  );
+};
+
 // ─── Root Component ────────────────────────────────────────────────────────
 export default function StudentMain({ onNavigate }) {
-  const [activeTab, setActiveTab]   = useState('analytics');
-  const [collapsed, setCollapsed]   = useState(false);
+  const [activeTab, setActiveTab] = useState('analytics');
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const handleNavPress = (id) => {
@@ -141,12 +262,10 @@ export default function StudentMain({ onNavigate }) {
         <View style={styles.desktopLayout}>
           <SidebarContent
             activeTab={activeTab}
-            collapsed={collapsed}
+            collapsed={false}
             onNavPress={handleNavPress}
-            onToggleCollapse={() => setCollapsed((v) => !v)}
-            showCollapseBtn
+            showCollapseBtn={false}
           />
-          {/* Your screen content goes here */}
           <View style={styles.mainContent}>
             <Text style={styles.placeholderText}>Main Content Area</Text>
           </View>
@@ -158,19 +277,11 @@ export default function StudentMain({ onNavigate }) {
   /* ── Mobile ────────────────────────────────────────────────────────────── */
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor="#0F1117" />
+      <StatusBar barStyle="light-content" backgroundColor="#13161E" />
 
       {/* Top Bar */}
       <View style={styles.mobileTopBar}>
-        <TouchableOpacity
-          activeOpacity={0.7}
-          style={styles.hamburgerBtn}
-          onPress={() => setMobileOpen(true)}
-        >
-          <View style={styles.hamburgerLine} />
-          <View style={[styles.hamburgerLine, { width: 18 }]} />
-          <View style={styles.hamburgerLine} />
-        </TouchableOpacity>
+        <HamburgerIcon onPress={() => setMobileOpen(true)} />
 
         <View style={styles.mobileLogoRow}>
           <View style={styles.logoIconBox}>
@@ -179,38 +290,17 @@ export default function StudentMain({ onNavigate }) {
           <Text style={styles.logoText}>Campus360</Text>
         </View>
 
-        {/* right placeholder for symmetric layout */}
-        <View style={{ width: 40 }} />
+        {/* Avatar shortcut on right */}
+        
       </View>
 
-      {/* Backdrop */}
-      {mobileOpen && (
-        <TouchableOpacity
-          style={styles.overlay}
-          activeOpacity={1}
-          onPress={() => setMobileOpen(false)}
-        />
-      )}
-
-      {/* Drawer */}
-      {mobileOpen && (
-        <View style={styles.mobileDrawer}>
-          <TouchableOpacity
-            style={styles.closeBtn}
-            activeOpacity={0.7}
-            onPress={() => setMobileOpen(false)}
-          >
-            <Text style={styles.closeBtnText}>✕</Text>
-          </TouchableOpacity>
-
-          <SidebarContent
-            activeTab={activeTab}
-            collapsed={false}
-            onNavPress={handleNavPress}
-            showCollapseBtn={false}
-          />
-        </View>
-      )}
+      {/* Animated Drawer + Overlay */}
+      <MobileDrawer
+        activeTab={activeTab}
+        onNavPress={handleNavPress}
+        visible={mobileOpen}
+        onClose={() => setMobileOpen(false)}
+      />
 
       {/* Main content */}
       <View style={styles.mainContent}>
@@ -311,7 +401,7 @@ const styles = StyleSheet.create({
   },
 
   /* Nav Items */
-  navList: { gap: 4 },
+  navList: { gap: 4, paddingHorizontal: 4 },
   navItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -339,6 +429,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
     paddingTop: 4,
+    paddingHorizontal: 8,
+    paddingBottom: 4,
   },
   userFooterCollapsed: { justifyContent: 'center', gap: 0 },
   avatarWrap: { position: 'relative' },
@@ -366,9 +458,9 @@ const styles = StyleSheet.create({
   userName:  { fontSize: 13, fontWeight: '600', color: C.textPrimary },
   userRole:  { fontSize: 11, color: C.textMuted, marginTop: 1 },
 
-  /* Mobile Top Bar */
+  /* ── Mobile Top Bar ──────────────────────────────────────────────────── */
   mobileTopBar: {
-    height: 56,
+    height: 58,
     backgroundColor: C.sidebar,
     flexDirection: 'row',
     alignItems: 'center',
@@ -382,53 +474,66 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
+
+  /* Hamburger — three equal lines */
   hamburgerBtn: {
     width: 40,
     height: 40,
     justifyContent: 'center',
-    gap: 5,
+    alignItems: 'flex-start',
+    gap: 6,
   },
   hamburgerLine: {
-    width: 22,
-    height: 2,
+    width: 24,
+    height: 2.5,
     backgroundColor: C.textPrimary,
     borderRadius: 2,
   },
 
-  /* Mobile Drawer */
+  /* ── Mobile Animated Drawer ──────────────────────────────────────────── */
   overlay: {
     position: 'absolute',
-    top: 56,
+    top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: 'rgba(0,0,0,0.65)',
     zIndex: 10,
   },
   mobileDrawer: {
     position: 'absolute',
-    top: 56,
+    top: 0,
     left: 0,
     bottom: 0,
-    width: 240,
+    width: DRAWER_WIDTH,
     backgroundColor: C.sidebar,
     zIndex: 20,
     borderRightWidth: 1,
     borderRightColor: C.border,
-    paddingTop: 10,
+    paddingTop: 16,
+    paddingHorizontal: 14,
+    // subtle shadow on the right edge
+    shadowColor: '#000',
+    shadowOffset: { width: 4, height: 0 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 16,
+  },
+  drawerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
   },
   closeBtn: {
-    alignSelf: 'flex-end',
-    marginRight: 14,
-    marginBottom: 4,
-    width: 28,
-    height: 28,
+    width: 30,
+    height: 30,
     borderRadius: 8,
     backgroundColor: C.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  closeBtnText: { color: C.textMuted, fontSize: 12, fontWeight: '700' },
+  closeBtnText: { color: C.textMuted, fontSize: 13, fontWeight: '700' },
 
   /* Main Content Placeholder */
   mainContent: {
