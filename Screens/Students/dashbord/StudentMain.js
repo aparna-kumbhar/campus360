@@ -10,6 +10,9 @@ import {
   Animated,
   TouchableWithoutFeedback,
 } from 'react-native';
+import Dashboardpage from './Dashboadpage';
+
+
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const IS_DESKTOP = SCREEN_WIDTH >= 768;
@@ -88,13 +91,20 @@ const SidebarContent = ({ activeTab, collapsed, onNavPress, onToggleCollapse, sh
     {/* Nav Items */}
     <View style={styles.navList}>
       {NAV_ITEMS.map((item) => (
-        <NavItem
-          key={item.id}
-          item={item}
-          isActive={activeTab === item.id}
-          onPress={onNavPress}
-          collapsed={collapsed}
-        />
+      <NavItem
+  key={item.id}
+  item={item}
+  isActive={activeTab === item.id}
+  collapsed={false}
+  onPress={(id) => {
+    setActiveTab(id);
+
+    // Only close drawer on mobile
+    if (!IS_DESKTOP) {
+      setDrawerOpen(false);
+    }
+  }}
+/>
       ))}
     </View>
 
@@ -245,14 +255,40 @@ const MobileDrawer = ({ activeTab, onNavPress, visible, onClose }) => {
 
 // ─── Root Component ────────────────────────────────────────────────────────
 export default function StudentMain({ onNavigate }) {
-  const [activeTab, setActiveTab] = useState('analytics');
+
+
+  const [activeTab, setActiveTab] = useState('dashboard');
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const handleNavPress = (id) => {
-    setActiveTab(id);
-    onNavigate?.(id);
-    if (!IS_DESKTOP) setMobileOpen(false);
-  };
+const renderContent = () => {
+  switch (activeTab) {
+    case 'dashboard':
+      return <Dashboardpage />;
+
+    case 'analytics':
+      return <Text style={{ color: '#fff' }}>Analytics Page</Text>;
+
+    case 'ai_doubts':
+      return <Text style={{ color: '#fff' }}>AI Doubts Page</Text>;
+
+    case 'chat':
+      return <Text style={{ color: '#fff' }}>Chat Page</Text>;
+
+    case 'profile':
+      return <Text style={{ color: '#fff' }}>Profile Page</Text>;
+
+    default:
+      return null;
+  }
+};
+const handleNavPress = (id) => {
+  setActiveTab(id);
+  onNavigate?.(id);
+
+  if (!IS_DESKTOP) {
+    setDrawerOpen(false);
+  }
+};
 
   /* ── Desktop ───────────────────────────────────────────────────────────── */
   if (IS_DESKTOP) {
@@ -267,7 +303,7 @@ export default function StudentMain({ onNavigate }) {
             showCollapseBtn={false}
           />
           <View style={styles.mainContent}>
-            <Text style={styles.placeholderText}>Main Content Area</Text>
+            {renderContent()}
           </View>
         </View>
       </SafeAreaView>
