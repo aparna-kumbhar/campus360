@@ -4,8 +4,7 @@ import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
 import LoginScreen from "./Screens/Login/Login";
-import StudentMain from "./Screens/Students/dashbord/StudentMain"; // adjust path
-//import Timetable from "./Screens/Students/timetable";
+import StudentMain from "./Screens/Students/dashbord/StudentMain";
 import Parentmaindashboard from "./Screens/Parent/Dashboard/Dashboard";
 import Dashboardpage from "./Screens/Parent/Dashboard/dashboardpage";
 import Analytics from "./Screens/Parent/Analytics/Analytics";
@@ -23,7 +22,7 @@ export default function App() {
       <NavigationContainer>
         <Stack.Navigator screenOptions={{ headerShown: false }}>
           <Stack.Screen name="Login" component={LoginScreen} />
-          <Stack.Screen name="StudentMain" component={StudentMain} />
+            <Stack.Screen name="StudentMain" component={StudentMain} />
            <Stack.Screen name="Parentmaindashboard" component={Parentmaindashboard} />
            <Stack.Screen name="Dashboardpage" component={Dashboardpage} />
            <Stack.Screen name="Analytics" component={Analytics} />

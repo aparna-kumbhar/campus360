@@ -1,309 +1,441 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
   StyleSheet,
+  TouchableOpacity,
   SafeAreaView,
+  StatusBar,
   Dimensions,
   Animated,
-  StatusBar,
-  ScrollView,
 } from 'react-native';
 
-const { width: SCREEN_W } = Dimensions.get('window');
-const isTablet = SCREEN_W >= 768;
-const SIDEBAR_W = 240;
-const COLLAPSED_W = 0;
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const IS_DESKTOP = SCREEN_WIDTH >= 768;
 
-// ─── COLORS ──────────────────────────────────────────────────────────────────
-const C = {
-  bg:        '#0d1117',
-  sidebar:   '#111827',
-  surface:   '#161b27',
-  surface2:  '#1c2233',
-  border:    '#1f2a3c',
-  accent:    '#2563eb',
-  accentBg:  '#1e3a5f22',
-  text:      '#e2e8f0',
-  textSub:   '#8b9ab0',
-  textMuted: '#4b5a72',
-  green:     '#22c55e',
-  overlay:   'rgba(0,0,0,0.55)',
-};
-
-// ─── NAV ITEMS ───────────────────────────────────────────────────────────────
+// ─── Nav Items ─────────────────────────────────────────────────────────────
 const NAV_ITEMS = [
-  { key: 'Dashboard',  icon: '⊞',  label: 'Dashboard' },
-  { key: 'Timetable', icon: '📅',  label: 'Timetable' },
-  { key: 'AIDoubts',  icon: '✦',   label: 'AI Doubts' },
-  { key: 'Chat',      icon: '💬',  label: 'Chat' },
-  { key: 'Profile',   icon: '👤',  label: 'Profile' },
+  { id: 'dashboard', label: 'Dashboard', icon: '⊞' },
+  { id: 'analytics', label: 'Analytics', icon: '📊' },
+  { id: 'ai_doubts', label: 'AI Doubts', icon: '🤖' },
+  { id: 'chat',      label: 'Chat',      icon: '💬' },
+
 ];
 
-// ─── ICON ────────────────────────────────────────────────────────────────────
-const NavIcon = ({ icon, active }) => (
-  <View style={[iconS.wrap, active && iconS.active]}>
-    <Text style={iconS.text}>{icon}</Text>
-  </View>
-);
-const iconS = StyleSheet.create({
-  wrap:   { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  active: { backgroundColor: C.accent },
-  text:   { fontSize: 17 },
-});
+// ─── Animated Nav Item ─────────────────────────────────────────────────────
+const NavItem = ({ item, isActive, onPress, collapsed }) => {
+  const scale = React.useRef(new Animated.Value(1)).current;
 
-// ─── STORAGE BAR ─────────────────────────────────────────────────────────────
-const StorageBar = () => (
-  <View style={stor.wrap}>
-    <Text style={stor.label}>STORAGE</Text>
-    <View style={stor.track}>
-      <View style={stor.fill} />
-    </View>
-    <Text style={stor.sub}>6.5 GB of 10 GB used</Text>
-  </View>
-);
-const stor = StyleSheet.create({
-  wrap:  { backgroundColor: C.surface2, borderRadius: 10, padding: 14, marginHorizontal: 12, marginBottom: 12 },
-  label: { color: C.textMuted, fontSize: 10, fontWeight: '700', letterSpacing: 1, marginBottom: 8 },
-  track: { height: 5, backgroundColor: C.border, borderRadius: 3, overflow: 'hidden', marginBottom: 6 },
-  fill:  { width: '65%', height: 5, backgroundColor: C.accent, borderRadius: 3 },
-  sub:   { color: C.textSub, fontSize: 11 },
-});
+  const onPressIn = () =>
+    Animated.spring(scale, { toValue: 0.94, useNativeDriver: true, speed: 50 }).start();
 
-// ─── SIDEBAR CONTENT ─────────────────────────────────────────────────────────
-const SidebarContent = ({ activeItem, onSelect }) => (
-  <View style={sc.container}>
+  const onPressOut = () =>
+    Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 50 }).start();
+
+  return (
+    <TouchableOpacity
+      activeOpacity={0.8}
+      onPress={() => onPress(item.id)}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+    >
+      <Animated.View
+        style={[
+          styles.navItem,
+          isActive && styles.navItemActive,
+          collapsed && styles.navItemCollapsed,
+          { transform: [{ scale }] },
+        ]}
+      >
+        <Text style={[styles.navIcon, isActive && styles.navIconActive]}>
+          {item.icon}
+        </Text>
+        {!collapsed && (
+          <Text style={[styles.navLabel, isActive && styles.navLabelActive]}>
+            {item.label}
+          </Text>
+        )}
+        {isActive && !collapsed && <View style={styles.activeDot} />}
+      </Animated.View>
+    </TouchableOpacity>
+  );
+};
+
+// ─── Sidebar Content ───────────────────────────────────────────────────────
+const SidebarContent = ({ activeTab, collapsed, onNavPress, onToggleCollapse, showCollapseBtn }) => (
+  <View style={[styles.sidebar, collapsed && styles.sidebarCollapsed]}>
     {/* Logo */}
-    <View style={sc.logoRow}>
-      <View style={sc.logoIcon}>
-        <Text style={sc.logoIconText}>⊕</Text>
+    <View style={[styles.logoRow, collapsed && styles.logoRowCollapsed]}>
+      <View style={styles.logoIconBox}>
+        <Text style={styles.logoEmoji}>🎓</Text>
       </View>
-      <Text style={sc.logoText}>Campus<Text style={sc.logoAccent}>360</Text></Text>
+      {!collapsed && <Text style={styles.logoText}>Campus360</Text>}
+      {showCollapseBtn && (
+        <TouchableOpacity
+          activeOpacity={0.7}
+          style={styles.collapseBtn}
+          onPress={onToggleCollapse}
+        >
+          <Text style={styles.collapseBtnText}>{collapsed ? '›' : '‹'}</Text>
+        </TouchableOpacity>
+      )}
     </View>
 
-    <View style={sc.divider} />
+    <View style={styles.divider} />
 
     {/* Nav Items */}
-    <ScrollView style={sc.nav} showsVerticalScrollIndicator={false}>
-      {NAV_ITEMS.map((item) => {
-        const active = activeItem === item.key;
-        return (
-          <TouchableOpacity
-            key={item.key}
-            style={[sc.navItem, active && sc.navItemActive]}
-            onPress={() => onSelect(item.key)}
-            activeOpacity={0.75}
-          >
-            <NavIcon icon={item.icon} active={active} />
-            <Text style={[sc.navLabel, active && sc.navLabelActive]}>
-              {item.label}
-            </Text>
-            {active && <View style={sc.activeDot} />}
-          </TouchableOpacity>
-        );
-      })}
-    </ScrollView>
-
-    {/* Storage */}
-    <StorageBar />
-  </View>
-);
-
-const sc = StyleSheet.create({
-  container: { flex: 1, backgroundColor: C.sidebar },
-
-  logoRow:       { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 20, paddingTop: 24, paddingBottom: 20 },
-  logoIcon:      { width: 38, height: 38, borderRadius: 10, backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center' },
-  logoIconText:  { color: '#fff', fontSize: 20, fontWeight: '900' },
-  logoText:      { color: C.text, fontSize: 20, fontWeight: '800', letterSpacing: 0.2 },
-  logoAccent:    { color: C.accent },
-
-  divider: { height: 1, backgroundColor: C.border, marginHorizontal: 16, marginBottom: 10 },
-
-  nav:           { flex: 1, paddingHorizontal: 10, paddingTop: 4 },
-  navItem:       { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 10, paddingVertical: 10, borderRadius: 12, marginBottom: 4 },
-  navItemActive: { backgroundColor: '#1e3a5f33' },
-  navLabel:      { color: C.textSub, fontSize: 15, fontWeight: '600', flex: 1 },
-  navLabelActive:{ color: C.text },
-  activeDot:     { width: 6, height: 6, borderRadius: 3, backgroundColor: C.accent },
-});
-
-// ─── MOBILE HAMBURGER TOPBAR ──────────────────────────────────────────────────
-const TopBar = ({ onMenuPress }) => (
-  <View style={tb.wrap}>
-    <TouchableOpacity style={tb.menuBtn} onPress={onMenuPress} activeOpacity={0.7}>
-      <View style={tb.line} />
-      <View style={[tb.line, { width: 18 }]} />
-      <View style={tb.line} />
-    </TouchableOpacity>
-    <View style={tb.logoRow}>
-      <View style={tb.logoIcon}>
-        <Text style={tb.logoIconText}>⊕</Text>
-      </View>
-      <Text style={tb.logoText}>Campus<Text style={tb.logoAccent}>360</Text></Text>
+    <View style={styles.navList}>
+      {NAV_ITEMS.map((item) => (
+        <NavItem
+          key={item.id}
+          item={item}
+          isActive={activeTab === item.id}
+          onPress={onNavPress}
+          collapsed={collapsed}
+        />
+      ))}
     </View>
-    <View style={{ width: 40 }} />
+
+    <View style={{ flex: 1 }} />
+    <View style={styles.divider} />
+
+    {/* User Footer */}
+    <TouchableOpacity
+      activeOpacity={0.75}
+      style={[styles.userFooter, collapsed && styles.userFooterCollapsed]}
+      onPress={() => onNavPress('profile')}
+    >
+      <View style={styles.avatarWrap}>
+        <View style={styles.avatar}>
+          <Text style={styles.avatarText}>AJ</Text>
+        </View>
+        <View style={styles.onlineBadge} />
+      </View>
+      {!collapsed && (
+        <View style={styles.userMeta}>
+          <Text style={styles.userName}>Alex Johnson</Text>
+          <Text style={styles.userRole}>Year 3 Student</Text>
+        </View>
+      )}
+    </TouchableOpacity>
   </View>
 );
-const tb = StyleSheet.create({
-  wrap:        { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14, backgroundColor: C.sidebar, borderBottomWidth: 1, borderBottomColor: C.border },
-  menuBtn:     { width: 40, height: 40, justifyContent: 'center', gap: 5, paddingHorizontal: 8 },
-  line:        { height: 2, width: 22, backgroundColor: C.text, borderRadius: 2 },
-  logoRow:     { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  logoIcon:    { width: 30, height: 30, borderRadius: 8, backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center' },
-  logoIconText:{ color: '#fff', fontSize: 16, fontWeight: '900' },
-  logoText:    { color: C.text, fontSize: 17, fontWeight: '800' },
-  logoAccent:  { color: C.accent },
-});
 
-// ─── DUMMY CONTENT (shows behind sidebar) ────────────────────────────────────
-const DummyContent = ({ activeItem }) => (
-  <View style={dc.wrap}>
-    <Text style={dc.label}>📄  {activeItem}</Text>
-    <Text style={dc.sub}>Main content area renders here</Text>
-  </View>
-);
-const dc = StyleSheet.create({
-  wrap:  { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: C.bg },
-  label: { color: C.text, fontSize: 22, fontWeight: '800', marginBottom: 8 },
-  sub:   { color: C.textSub, fontSize: 14 },
-});
-
-// ─── MAIN LAYOUT ─────────────────────────────────────────────────────────────
-export default function SidebarLayout() {
-  const [activeItem, setActiveItem] = useState('Dashboard');
+// ─── Root Component ────────────────────────────────────────────────────────
+export default function StudentMain({ onNavigate }) {
+  const [activeTab, setActiveTab]   = useState('analytics');
+  const [collapsed, setCollapsed]   = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const slideAnim = useRef(new Animated.Value(-SIDEBAR_W)).current;
-  const fadeAnim  = useRef(new Animated.Value(0)).current;
 
-  const openSidebar = () => {
-    setMobileOpen(true);
-    Animated.parallel([
-      Animated.spring(slideAnim, { toValue: 0, useNativeDriver: true, tension: 80, friction: 12 }),
-      Animated.timing(fadeAnim,  { toValue: 1, duration: 200, useNativeDriver: true }),
-    ]).start();
+  const handleNavPress = (id) => {
+    setActiveTab(id);
+    onNavigate?.(id);
+    if (!IS_DESKTOP) setMobileOpen(false);
   };
 
-  const closeSidebar = () => {
-    Animated.parallel([
-      Animated.spring(slideAnim, { toValue: -SIDEBAR_W, useNativeDriver: true, tension: 80, friction: 12 }),
-      Animated.timing(fadeAnim,  { toValue: 0, duration: 180, useNativeDriver: true }),
-    ]).start(() => setMobileOpen(false));
-  };
-
-  const handleSelect = (key) => {
-    setActiveItem(key);
-    if (!isTablet) closeSidebar();
-  };
-
-  // ── TABLET/LAPTOP: persistent sidebar ──
-  if (isTablet) {
+  /* ── Desktop ───────────────────────────────────────────────────────────── */
+  if (IS_DESKTOP) {
     return (
-      <SafeAreaView style={layout.safe}>
-        <StatusBar barStyle="light-content" backgroundColor={C.sidebar} />
-        <View style={layout.row}>
-          {/* Sidebar */}
-          <View style={layout.sidebarTablet}>
-            <SidebarContent activeItem={activeItem} onSelect={handleSelect} />
-          </View>
-          {/* Content */}
-          <View style={layout.content}>
-            <DummyContent activeItem={activeItem} />
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar barStyle="light-content" backgroundColor="#0F1117" />
+        <View style={styles.desktopLayout}>
+          <SidebarContent
+            activeTab={activeTab}
+            collapsed={collapsed}
+            onNavPress={handleNavPress}
+            onToggleCollapse={() => setCollapsed((v) => !v)}
+            showCollapseBtn
+          />
+          {/* Your screen content goes here */}
+          <View style={styles.mainContent}>
+            <Text style={styles.placeholderText}>Main Content Area</Text>
           </View>
         </View>
       </SafeAreaView>
     );
   }
 
-  // ── MOBILE: drawer overlay ──
+  /* ── Mobile ────────────────────────────────────────────────────────────── */
   return (
-    <SafeAreaView style={layout.safe}>
-      <StatusBar barStyle="light-content" backgroundColor={C.sidebar} />
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="light-content" backgroundColor="#0F1117" />
 
-      {/* Top bar with hamburger */}
-      <TopBar onMenuPress={openSidebar} />
+      {/* Top Bar */}
+      <View style={styles.mobileTopBar}>
+        <TouchableOpacity
+          activeOpacity={0.7}
+          style={styles.hamburgerBtn}
+          onPress={() => setMobileOpen(true)}
+        >
+          <View style={styles.hamburgerLine} />
+          <View style={[styles.hamburgerLine, { width: 18 }]} />
+          <View style={styles.hamburgerLine} />
+        </TouchableOpacity>
 
-      {/* Page content */}
-      <View style={{ flex: 1 }}>
-        <DummyContent activeItem={activeItem} />
+        <View style={styles.mobileLogoRow}>
+          <View style={styles.logoIconBox}>
+            <Text style={styles.logoEmoji}>🎓</Text>
+          </View>
+          <Text style={styles.logoText}>Campus360</Text>
+        </View>
+
+        {/* right placeholder for symmetric layout */}
+        <View style={{ width: 40 }} />
       </View>
 
-      {/* Overlay + Drawer */}
+      {/* Backdrop */}
       {mobileOpen && (
-        <>
-          {/* Dimmed backdrop — tap to close */}
-          <Animated.View
-            style={[layout.overlay, { opacity: fadeAnim }]}
-            pointerEvents="auto"
-          >
-            <TouchableOpacity
-              style={StyleSheet.absoluteFill}
-              onPress={closeSidebar}
-              activeOpacity={1}
-            />
-          </Animated.View>
-
-          {/* Drawer sliding in from left */}
-          <Animated.View
-            style={[layout.drawer, { transform: [{ translateX: slideAnim }] }]}
-          >
-            <SafeAreaView style={{ flex: 1 }}>
-              {/* Close button inside drawer */}
-              <TouchableOpacity style={layout.closeBtn} onPress={closeSidebar} activeOpacity={0.7}>
-                <Text style={layout.closeBtnText}>✕</Text>
-              </TouchableOpacity>
-              <SidebarContent activeItem={activeItem} onSelect={handleSelect} />
-            </SafeAreaView>
-          </Animated.View>
-        </>
+        <TouchableOpacity
+          style={styles.overlay}
+          activeOpacity={1}
+          onPress={() => setMobileOpen(false)}
+        />
       )}
+
+      {/* Drawer */}
+      {mobileOpen && (
+        <View style={styles.mobileDrawer}>
+          <TouchableOpacity
+            style={styles.closeBtn}
+            activeOpacity={0.7}
+            onPress={() => setMobileOpen(false)}
+          >
+            <Text style={styles.closeBtnText}>✕</Text>
+          </TouchableOpacity>
+
+          <SidebarContent
+            activeTab={activeTab}
+            collapsed={false}
+            onNavPress={handleNavPress}
+            showCollapseBtn={false}
+          />
+        </View>
+      )}
+
+      {/* Main content */}
+      <View style={styles.mainContent}>
+        <Text style={styles.placeholderText}>Main Content Area</Text>
+      </View>
     </SafeAreaView>
   );
 }
 
-// ─── LAYOUT STYLES ───────────────────────────────────────────────────────────
-const layout = StyleSheet.create({
-  safe:          { flex: 1, backgroundColor: C.bg },
-  row:           { flex: 1, flexDirection: 'row' },
+// ─── Styles ────────────────────────────────────────────────────────────────
+const C = {
+  bg:          '#0F1117',
+  sidebar:     '#13161E',
+  border:      '#1E2130',
+  accent:      '#3B6FE8',
+  accentBg:    'rgba(59,111,232,0.15)',
+  textPrimary: '#E8ECF4',
+  textMuted:   '#6B7280',
+  white:       '#FFFFFF',
+  green:       '#22C55E',
+};
 
-  // Tablet persistent sidebar
-  sidebarTablet: {
-    width: SIDEBAR_W,
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: C.bg,
+  },
+
+  /* Desktop */
+  desktopLayout: {
+    flex: 1,
+    flexDirection: 'row',
+  },
+
+  /* Sidebar */
+  sidebar: {
+    width: 220,
+    height: '100%',
+    backgroundColor: C.sidebar,
+    paddingVertical: 20,
+    paddingHorizontal: 14,
     borderRightWidth: 1,
     borderRightColor: C.border,
   },
-  content: { flex: 1 },
+  sidebarCollapsed: {
+    width: 68,
+    alignItems: 'center',
+  },
 
-  // Mobile overlay
+  /* Logo */
+  logoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    gap: 10,
+  },
+  logoRowCollapsed: {
+    justifyContent: 'center',
+    gap: 0,
+    marginBottom: 16,
+  },
+  logoIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: C.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logoEmoji: { fontSize: 18 },
+  logoText: {
+    flex: 1,
+    fontSize: 17,
+    fontWeight: '700',
+    color: C.textPrimary,
+    letterSpacing: 0.2,
+  },
+  collapseBtn: {
+    width: 26,
+    height: 26,
+    borderRadius: 8,
+    backgroundColor: C.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  collapseBtnText: {
+    color: C.textMuted,
+    fontSize: 16,
+    fontWeight: '700',
+    lineHeight: 20,
+  },
+
+  divider: {
+    height: 1,
+    backgroundColor: C.border,
+    marginVertical: 12,
+    alignSelf: 'stretch',
+  },
+
+  /* Nav Items */
+  navList: { gap: 4 },
+  navItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 11,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    gap: 12,
+  },
+  navItemActive:    { backgroundColor: C.accentBg },
+  navItemCollapsed: { justifyContent: 'center', paddingHorizontal: 0, width: 40 },
+  navIcon:          { fontSize: 17, opacity: 0.45 },
+  navIconActive:    { opacity: 1 },
+  navLabel:         { flex: 1, fontSize: 14, fontWeight: '500', color: C.textMuted },
+  navLabelActive:   { color: C.accent, fontWeight: '600' },
+  activeDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: C.accent,
+  },
+
+  /* User Footer */
+  userFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingTop: 4,
+  },
+  userFooterCollapsed: { justifyContent: 'center', gap: 0 },
+  avatarWrap: { position: 'relative' },
+  avatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: C.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText:  { fontSize: 13, fontWeight: '700', color: C.white },
+  onlineBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: C.green,
+    borderWidth: 2,
+    borderColor: C.sidebar,
+  },
+  userMeta:  { flex: 1 },
+  userName:  { fontSize: 13, fontWeight: '600', color: C.textPrimary },
+  userRole:  { fontSize: 11, color: C.textMuted, marginTop: 1 },
+
+  /* Mobile Top Bar */
+  mobileTopBar: {
+    height: 56,
+    backgroundColor: C.sidebar,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: C.border,
+  },
+  mobileLogoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  hamburgerBtn: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    gap: 5,
+  },
+  hamburgerLine: {
+    width: 22,
+    height: 2,
+    backgroundColor: C.textPrimary,
+    borderRadius: 2,
+  },
+
+  /* Mobile Drawer */
   overlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: C.overlay,
+    position: 'absolute',
+    top: 56,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.6)',
     zIndex: 10,
   },
-
-  // Mobile drawer
-  drawer: {
+  mobileDrawer: {
     position: 'absolute',
-    top: 0, bottom: 0, left: 0,
-    width: SIDEBAR_W,
+    top: 56,
+    left: 0,
+    bottom: 0,
+    width: 240,
+    backgroundColor: C.sidebar,
     zIndex: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 4, height: 0 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 20,
+    borderRightWidth: 1,
+    borderRightColor: C.border,
+    paddingTop: 10,
   },
-
-  // Close X button inside mobile drawer
   closeBtn: {
-    position: 'absolute',
-    top: 14, right: 14,
-    zIndex: 30,
-    width: 32, height: 32,
+    alignSelf: 'flex-end',
+    marginRight: 14,
+    marginBottom: 4,
+    width: 28,
+    height: 28,
     borderRadius: 8,
-    backgroundColor: C.surface2,
-    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: C.border,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  closeBtnText: { color: C.textSub, fontSize: 14, fontWeight: '700' },
+  closeBtnText: { color: C.textMuted, fontSize: 12, fontWeight: '700' },
+
+  /* Main Content Placeholder */
+  mainContent: {
+    flex: 1,
+    backgroundColor: C.bg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  placeholderText: { color: C.textMuted, fontSize: 16 },
 });
